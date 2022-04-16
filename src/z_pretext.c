@@ -59,7 +59,10 @@ static int z_preprocess_tirigraph(char** lines)
             }
 
             if (!r) {
-                z_log("preZ warning: using multiple question marks ?? with invalid tirigraph replacement in line %zu.\n'%s'\n", i + 1, lines[i]);
+                z_log("preZ warning: using multiple question marks ?? with invalid tirigraph replacement in line %zu.\n", i + 1);
+                while (*ch == '?') {
+                    ++ch;
+                }
                 continue;
             }
 
@@ -140,19 +143,19 @@ static int z_preprocess_blocks(char** lines)
         while ((s = z_token_block_next(s))) {
             if (s[0] == '"') {
                 if (!(s = z_token_string_literal(s, "\""))) {
-                    z_log("preZ error: Unclosed \"\" block at line %zu.\n[%s]\n", i, lines[i]);
+                    z_log("preZ error: Unclosed \"\" block at line %zu.\n", i + 1);
                     return Z_EXIT_FAILURE;
                 }
             }
             else if (s[0] == '\'') {
                 if (!(s = z_token_string_literal(s, "'"))) {
-                    z_log("preZ error: Unclosed '' block at line %zu.\n[%s]\n", i, lines[i]);
+                    z_log("preZ error: Unclosed '' block at line %zu.\n", i + 1);
                     return Z_EXIT_FAILURE;
                 }
             }
             else if (s[1] == '*') {
                 if (z_preprocess_comment_c(s, lines, i)) {
-                    z_log("preZ error: Unclosed /* comment on line %zu.\n[%s]\n", i, lines[i]);
+                    z_log("preZ error: Unclosed /* comment on line %zu.\n", i + 1);
                     return Z_EXIT_FAILURE;
                 }
             } 

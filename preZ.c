@@ -4,6 +4,8 @@
 #include <utopia/utopia.h>
 #include <xstring/xstring.h>
 
+extern array_t include_paths;
+
 static int preZ_help(const char* exename)
 {
     z_log("preZ usage information:\n", exename);
@@ -31,7 +33,7 @@ static void z_log_strs(char** strs)
 static void z_log_tokens(char** strs)
 {
     for (size_t i = 0; strs[i]; ++i) {
-        z_log("%s ", strs[i]);
+        z_log("'%s' ", strs[i]);
     }
 }
 
@@ -40,7 +42,7 @@ int main(int argc, char** argv)
     void* null = NULL;
     char* output_file = NULL;
     array_t source_files = array_create(sizeof(char*));
-    array_t include_paths = array_create(sizeof(char*));
+    include_paths = array_create(sizeof(char*));
 
     for (int i = 1; i < argc; ++i) {
         
@@ -59,11 +61,13 @@ int main(int argc, char** argv)
             output_file = argv[i + 1];
         }
         else if (strstr(argv[i], "-I") == argv[i]) {
-            char* str = x_strdup(argv[i] + 2);
-            if (str[strlen(str) - 1] != '/') {
-                char* tmp = x_strcat(str, "/");
-                free(str);
-                str = tmp;
+            if (!argv[i][2]) {
+                z_log("Invalid use of option -I. See -h for more information.\n");
+                return Z_EXIT_FAILURE;
+            }
+            char* str = (argv[i][strlen(argv[i]) - 1] != '/') ? x_strcat(argv[i] + 2, "/") : x_strdup(argv[i] + 2);
+            if (!str) {
+                z_log("What=??\n");
             }
             array_push(&include_paths, &str);
         }
@@ -95,9 +99,9 @@ int main(int argc, char** argv)
 
     z_log_tokens(tokens);
 
-    array_free(&source_files);
-    array_free(&include_paths);
+    x_strget_free(include_paths.data);
     x_strget_free(tokens);
+    array_free(&source_files);
 
     return Z_EXIT_SUCCESS;
 }

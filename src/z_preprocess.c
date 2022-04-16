@@ -16,7 +16,10 @@ char** z_preprocess_text(const char* str)
         return NULL;
     }
 
-    return tokens;
+    char** directives = z_preprocess_directives(tokens);;
+    free(tokens);
+    
+    return directives;
 }
 
 char** z_preprocess_file(const char* filename)
@@ -32,8 +35,8 @@ char** z_preprocess_file(const char* filename)
         return NULL;
     }
 
-    char** lines = z_preprocess_text(text);
+    char** tokens = z_preprocess_text(text);
     free(text);
 
-    return lines;
+    return tokens;
 }

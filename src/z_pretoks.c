@@ -16,7 +16,7 @@ static inline bool z_chrbool_number(const char ch)
 
 static inline bool z_chrbool_string_literal(const char ch)
 {
-    return (ch == '\'' || ch == '"' || ch == '<');
+    return (ch == '\'' || ch == '"');
 }
 
 static inline bool z_chrbool_identifier(const char ch)
@@ -88,6 +88,35 @@ static char* z_token_identifier(const char* str)
     return s;
 }
 
+static int z_token_dirigrapgh(char* str)
+{
+    if (!strcmp(str, "<%%")) {
+        strcpy(str, "{");
+        return 1;
+    }
+    else if (!strcmp(str, "%%>")) {
+        strcpy(str, "}");
+        return 1;
+    }
+    else if (!strcmp(str, "<:")) {
+        strcpy(str, "[");
+        return 1;
+    }
+    else if (!strcmp(str, ":>")) {
+        strcpy(str, "]");
+        return 1;
+    }
+    else if (!strcmp(str, "%%:")) {
+        strcpy(str, "#");
+        return 1;
+    }
+    else if (!strcmp(str, "%%:%%:")) {
+        strcpy(str, "##");
+        return 1;
+    }
+    return 0;
+}
+
 static char* z_token_puntuator(const char* str)
 {
     char* s = (char*)(size_t)str + 1;
@@ -100,6 +129,9 @@ static char* z_token_puntuator(const char* str)
         }
         case '&': {
             return s + (str[1] == '&' || str[1] == '=');
+        }
+        case '!': {
+            return s + (str[1] == '=');
         }
         case '^': {
             return s + (str[1] == '=');
@@ -119,11 +151,14 @@ static char* z_token_puntuator(const char* str)
         case '/': {
             return s + (str[1] == '=');
         }
+        case '%': {
+            return s + (str[1] == '=' || str[1] == '>' || str[1] == ':') + 2 * (str[1] == ':' && str[2] == '%' && str[3] == ':');
+        }
         case '=': {
             return s + (str[1] == '=');
         }
         case '<': {
-            if (str[1] == '=') {
+            if (str[1] == '=' || str[1] == '%' || str[1] == ':') {
                 ++s;
             }
             else if (str[1] == '<') {
@@ -146,6 +181,9 @@ static char* z_token_puntuator(const char* str)
             }
             return s;
         }
+        case ':': {
+            return s + (str[1] == '>');
+        }
         default: { 
             return s; 
         }
@@ -155,9 +193,7 @@ static char* z_token_puntuator(const char* str)
 static char* z_strtok(const char* str)
 {
     if (z_chrbool_string_literal(*str)) {
-        char symbol[2] = {0};
-        symbol[0] = (*str == '<') ? '>' : *str;
-        return z_token_string_literal(str, symbol);
+        return z_token_string_literal(str, str);
     }
     else if (z_chrbool_identifier(*str)) {
         return z_token_identifier(str);
@@ -186,6 +222,9 @@ static int z_preprocess_tokenize_line(const char* restrict line, array_t* restri
     s = z_token_next(line);
     while ((end = z_strtok(s))) {
         str = x_strdup_range(s, end);
+        if (z_chrbool_puntuator(str[0])) {
+            z_token_dirigrapgh(str);
+        }
         array_push(tokens, &str);
         s = z_token_next(end);
     }
@@ -200,6 +239,8 @@ static int z_preprocess_tokenize_line(const char* restrict line, array_t* restri
 
     return Z_EXIT_SUCCESS;
 }
+
+/* Second Preprocessing Pass: Tokenization */
 
 char** z_preprocess_tokens(char** lines)
 {

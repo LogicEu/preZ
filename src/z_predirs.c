@@ -1,155 +1,113 @@
-/*#include <preZ.h>
+#include <preZ.h>
 #include <stdlib.h>
 #include <string.h>
 #include <utopia/utopia.h>
-#include <xstring/xstring.h>*/
+#include <xstring/xstring.h>
 
-/* Preprocessor #include */
+array_t include_paths;
 
-/*static char* z_preprocess_include_path_extract(char* restrict str, const char* open, const char* end, const char* new_line)
+static char** z_preprocess_include(char** line, const size_t line_count)
 {
-    char* ret = NULL;
-    
-    char* parenth = strstr(str, open);
-    if (!parenth) {
-        z_log("preZ error: Missing file path in #include macro directive.\n");
+    if (line[2][0] == '\n') {
+        z_log("preZ error: Missing argument for #include in line %zu.\n", line_count);
         return NULL;
     }
 
-    if (!new_line || parenth < new_line) {
-        char* close = strstr(parenth, end);
-        if (!close || (new_line && close > new_line)) {
-            z_log("preZ error: Unclosed #include %s directive\n", open);
+    char filename[1024] = {0};
+    char** tokens = NULL;
+
+    if (line[2][0] == '<') {
+        
+        bool closed = false;
+        
+        for (size_t i = 3; line[i][0] != '\n'; ++i) {
+            if (line[i][0] == '>') {
+                closed = true;
+                break;
+            }
+            strcat(filename, line[i]);
+        }
+
+        if (!closed) {
+            z_log("preZ error: Missing closing symbols in #include argument in line %zu.\n", line_count);
             return NULL;
         }
-        ret = x_strdup_range(parenth, ++close);
-    } else {
-        z_log("preZ error: Unclosed #include %s directive\n", open);
-        return NULL;
-    }
 
-    return ret;
-}
+        char buffer[1024];
+        char** includes = include_paths.data;
 
-static char* z_preprocess_include_replace_text(const char* str, const char* ptr, const char* restrict buff, const size_t size)
-{
-    const size_t buffsize = strlen(buff);
-    const size_t strsize = strlen(str);
-    const size_t addsize = buffsize + strsize;
-
-    char* add = calloc(addsize + 1, sizeof(char));
-    memcpy(add, str, strsize + 1);
-
-    char* addptr = add + (size_t)(ptr - str);
-    char* addinc = addptr + size + 1;
-    char* addbuff = addptr + buffsize;
-    memmove(addbuff, addinc, strlen(addinc) + 1);
-    memcpy(addptr, buff, buffsize);
-
-    return add;
-}
-
-static char** z_preprocess_include_replace(char** lines, const char* ptr, char* restrict filename, const size_t size)
-{
-    const char c = *filename;
-    const size_t filename_size = strlen(filename) - 1;
-    filename[filename_size] = '\0';
-    memmove(filename, filename + 1, filename_size);
-
-    char* buff = NULL;
-
-    if (c == '<') {
-        
-        const size_t include_size = include_paths.size;
-        const char** paths = include_paths.data;
-        char* tmp;
-        
-        for (size_t i = 0; i < include_size; ++i) {
-            tmp = x_strcat(paths[i], filename);
-            if (!tmp) {
-                continue;
-            }
-
-            z_log("Searching in: %s\n", tmp);
-
-            buff = x_file_stream_read(tmp);
-            free(tmp);
-
-            if (buff) {
+        for (size_t i = 0; includes[i]; ++i) {
+            strcpy(buffer, includes[i]);
+            strcat(buffer, filename);
+            if ((tokens = z_preprocess_file(buffer))) {
+                strcpy(filename, buffer);
                 break;
             }
         }
+    } 
+    else if (line[2][0] == '"') {
+        const size_t len = strlen(line[2]);
+        memcpy(filename, line[2] + 1, len - 2);
+        tokens = z_preprocess_file(filename);
+    } 
+    else {
+        z_log("preZ error: Argument for #include must begin and end with either \"\" or <>. Line %zu.\n", line_count);
+        return NULL;
     }
-    else buff = z_file_stream(filename);
-
-    if (!buff) {
-        z_log("preZ error: Unresolved path for #include '%s'\n", filename);
+    
+    if (!tokens) {
+        z_log("preZ error: Unresolved path for #include %s in line %zu.\n", filename, line_count);
         return NULL;
     }
 
-    char** bufflines = z_preprocess_text(buff);
-    if (!bufflines) {
-        return NULL;
-    }
-    free(buff);
-
-    //char* add = z_preprocess_include_replace_text(*str, ptr, buff, size);
-    char** sum = x_strget_inject();
-    x_strget_free(bufflines);
-    return Z_EXIT_SUCCESS;
+    return tokens;
 }
 
-static int z_preprocess_include(char** lines)
+static char** z_preprocess_directive_line(char** restrict tokens, const size_t line_count)
 {
-    static const char* include = "#include ";
-    const size_t include_size = strlen(include);
-
-    char* s = *str;
-    while ((s = strstr(s, include))) {
-        char* ptr = s;
-        s += include_size;
-
-        char* new_line = strstr(s, "\n");
-        char* parenth = z_preprocess_include_path_extract(s, "<", ">", new_line);
-        
-        if (!parenth){
-            parenth = z_preprocess_include_path_extract(s, "\"", "\"", new_line);
+    if (!strcmp(tokens[0], "#")) {
+        if (!strcmp(tokens[1], "include")) {
+            return z_preprocess_include(tokens, line_count);
         }
+        /*else if (!strcmp(tokens[count + 1], "define")) {
 
-        if (!parenth) {
-            z_log("preZ error: #include directive error.\n");
-            return Z_EXIT_FAILURE;
-        }
-
-        if (!new_line) {
-            new_line = s + strlen(s) - 1;
-        }
-
-        z_log("#include %s\n", parenth);
-        if (z_preprocess_include_replace(str, ptr, parenth, new_line - ptr)) {
-            s = ptr + 1;
-        } 
-        else s = *str;
-        
-        free(parenth);
+        }*/
     }
 
-    return Z_EXIT_SUCCESS;
-}*/
+    return NULL;
+}
 
-/*static char** z_preprocess_directives(char** lines)
+char** z_preprocess_directives(char** tokens)
 {
-    char** strs = lines;
-    for (size_t i = 0; lines[i]; ++i) {
-        char* ch = lines[i];
-        while (*ch == '\t' || *ch == ' ') {
-            ++ch;
-        }
+    void* null = NULL;
+    array_t directives = array_create(sizeof(char*));
 
-        if (*ch == '#') {
+    size_t count = 0, line_count = 1;
+    while (tokens[count]) {
+        char** toks = z_preprocess_directive_line(tokens + count, line_count);
+        if (toks) {
 
+            for (; *tokens[count] != '\n'; ++count) {
+                free(tokens[count]);
+            }
+            free(tokens[count++]);
+
+            for (size_t i = 0; toks[i]; ++i) {
+                array_push(&directives, &toks[i]);
+            }
+            free(toks);
+
+        } else {
+            for (; *tokens[count] != '\n'; ++count) {
+                array_push(&directives, &tokens[count]);
+            }
+            array_push(&directives, &tokens[count++]);
         }
+        ++line_count;
     }
 
-    return strs;
-}*/
+    array_push(&directives, &null);
+    array_cut(&directives);
+
+    return directives.data;
+}
