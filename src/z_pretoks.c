@@ -1,7 +1,6 @@
 #include <preZ.h>
 #include <string.h>
 #include <stdlib.h>
-#include <utopia/utopia.h>
 #include <xstring/xstring.h>
 
 static inline bool z_chrbool_space(const char ch)
@@ -45,7 +44,7 @@ static inline bool z_strbool_exponent(const char* str)
     return ((str[1] == '+' || str[1] == '-') && (str[0] == 'e' || str[0] == 'E' || str[0] == 'p' || str[0] == 'P'));
 }
 
-char* z_token_string_literal(const char* restrict str, const char* restrict symbol)
+char* z_token_string_literal(const char* str, const char* symbol)
 {
     char* end = strstr(str + 1, symbol);
     while (end && *(end - 1) == '\\') {
@@ -193,7 +192,8 @@ static char* z_token_puntuator(const char* str)
 static char* z_strtok(const char* str)
 {
     if (z_chrbool_string_literal(*str)) {
-        return z_token_string_literal(str, str);
+        char symbol[2] = {*str, 0};
+        return z_token_string_literal(str, symbol);
     }
     else if (z_chrbool_identifier(*str)) {
         return z_token_identifier(str);

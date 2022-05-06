@@ -1,7 +1,6 @@
 #include <preZ.h>
 #include <string.h>
 #include <stdlib.h>
-#include <utopia/utopia.h>
 #include <xstring/xstring.h>
 
 extern array_t include_paths;
@@ -34,6 +33,22 @@ static void z_log_tokens(char** strs)
 {
     for (size_t i = 0; strs[i]; ++i) {
         z_log("'%s' ", strs[i]);
+    }
+}
+
+static void z_log_map(const map_t* map)
+{
+    char** keys = map->keys;
+    char*** values = map->values;
+
+    const size_t size = map_size(map);
+    z_log("Element Count: %zu\n", size);
+    for (size_t i = 0; i < size; ++i) {
+        z_log("Macro: '%s'", keys[i]);
+        for (size_t j = 0; values[i][j]; ++j) {
+            z_log(" '%s'", values[i][j]);
+        }
+        z_log("\n");
     }
 }
 
@@ -92,12 +107,16 @@ int main(int argc, char** argv)
         z_log("Output File: %s\n", output_file);
     }
 
-    char** tokens = z_preprocess_file(strs[0]);
+    map_t defines = map_create(sizeof(char*), sizeof(char**));
+
+    char** tokens = z_preprocess_file(strs[0], &defines);
     if (!tokens) {
         return Z_EXIT_FAILURE;
     }
 
     z_log_tokens(tokens);
+    z_log("\n");
+    z_log_map(&defines);
 
     x_strget_free(include_paths.data);
     x_strget_free(tokens);
